@@ -11,8 +11,6 @@ EMPTY = None
 
 RowColumn = tuple[int, int]
 XO = Literal["X"] | Literal["O"]
-
-
 Board = List[List[XO | None]]
 
 
