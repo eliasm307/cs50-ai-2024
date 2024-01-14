@@ -2,9 +2,11 @@
 Tic Tac Toe Player
 """
 
+from ast import Dict
 from copy import deepcopy
 from math import inf, isfinite
-from typing import List, Literal
+from tkinter.tix import MAX
+from typing import List, Literal, TypedDict
 
 X = "X"
 O = "O"
@@ -154,40 +156,67 @@ def utility(board: Board):
     return 0
 
 
-def get_max_score(board: Board, upper_limit: float) -> float:
+def get_board_key(board: Board) -> str:
+    return str(board)
+
+
+MAX_SCORE = 1
+MIN_SCORE = -1
+
+
+class Move(TypedDict):
+    score: float
+    action: RowColumn | None
+
+
+# the score only depends on the board state so we can cache the results
+# NOTE: key is generated from the board state
+board_max_score_cache: dict[str, Move] = {}
+board_min_score_cache: dict[str, Move] = {}
+
+
+def get_best_move(board: Board, isMinimising: bool) -> Move:
+    # check if we have already calculated the score for this board
+    cache = board_min_score_cache if isMinimising else board_max_score_cache
+    key = get_board_key(board)
+    if key in cache:
+        return cache[key]
+
     if terminal(board):
-        return utility(board)  # game is over return result
+        # game is over return result
+        cache[key] = {
+            "score": utility(board),
+            "action": None
+        }
+        return cache[key]
 
-    highest_min_opponent_score = -inf # assume low score initially
+    # default to worst score
+    best: Move  = {
+        "score": MAX_SCORE if isMinimising else MIN_SCORE,
+        "action": None
+    }
+
+    limit = MIN_SCORE if isMinimising else MAX_SCORE
+
     for action in actions(board):
-        highest_min_opponent_score = get_min_score(
-            board=result(board, action),
-            # ie if we encounter a score lower than our current highest, then it means the overall score will be lower, so can stop early at that point
-            lower_limit=highest_min_opponent_score
-        )
+        next = get_best_move(result(board, action), not isMinimising)
+        if isMinimising and next['score'] < best['score']:
+            best = {
+                "score": next['score'],
+                "action": action
+            }
 
-        if isfinite(upper_limit) and highest_min_opponent_score > upper_limit:
-            return upper_limit # we have exceeded the upper limit, no need to continue
+        elif not isMinimising and next['score'] > best['score']:
+            best = {
+                "score": next['score'],
+                "action": action
+            }
 
-    return highest_min_opponent_score
+        if best['score'] == limit:
+            break # cant get any better
 
-
-def get_min_score(board: Board, lower_limit: float) -> float:
-    if terminal(board):
-        return utility(board)  # game is over return result
-
-    lowest_max_opponent_score = inf # assume high score initially
-    for action in actions(board):
-        lowest_max_opponent_score = get_max_score(
-            board=result(board, action),
-            # ie if we encounter a score higher than our current lowest, then it means the overall score will be higher, so can stop early at that point
-            upper_limit=lowest_max_opponent_score
-        )
-
-        if isfinite(lower_limit) and lowest_max_opponent_score < lower_limit:
-            return lower_limit # we have exceeded the lower limit, no need to continue
-
-    return lowest_max_opponent_score
+    cache[key] = best
+    return cache[key]
 
 
 def minimax(board: Board) -> RowColumn | None:
@@ -195,33 +224,10 @@ def minimax(board: Board) -> RowColumn | None:
     Returns the optimal action for the current player on the board.
     """
 
-    if terminal(board):
-        return  # game is over, no further actions to take
+    best = get_best_move(
+        board=board,
+        isMinimising=player(board) == O
+    )
 
-    best_action = None
-    if player(board) == O:
-        # O wants to minimise
-        lowest_score = inf # assume high score initially
-        for action in actions(board):
-            score = get_min_score(
-                board=result(board, action),
-                lower_limit=lowest_score
-            )
-            if score < lowest_score:
-                lowest_score = score
-                best_action = action
-
-    else:
-        # X wants to maximise
-        highest_score = -inf # assume low score initially
-        for action in actions(board):
-            score = get_max_score(
-                board=result(board, action),
-                upper_limit=highest_score
-            )
-            if score > highest_score:
-                highest_score = score
-                best_action = action
-
-    return best_action
+    return best['action']
 
