@@ -21,7 +21,11 @@ def create_person_is_role_symbol(person: Person, role: Role):
     return Symbol(person + " is a " + role)
 
 
-def add_general_facts_for_people(knowledge: And, available_people: list[Person]):
+def add_general_facts(knowledge: And, available_people: list[Person]):
+    knight_symbols = []
+    knave_symbols = []
+
+    # people can only have one role
     for person in available_people:
         personIsKnight = create_person_is_role_symbol(person, "Knight")
         personIsKnave = create_person_is_role_symbol(person, "Knave")
@@ -29,9 +33,25 @@ def add_general_facts_for_people(knowledge: And, available_people: list[Person])
         knowledge.add(Or(personIsKnight, personIsKnave))
         # people cannot be both roles
         knowledge.add(Not(And(personIsKnight, personIsKnave)))
+        knight_symbols.append(personIsKnight)
+        knave_symbols.append(personIsKnave)
+
+    all_are_knaves = And(*knave_symbols)
+    some_are_knaves = Or(*knave_symbols)
+    none_are_knaves = And(*map(lambda s: Not(s), knave_symbols))
+    all_are_knights = And(*knight_symbols)
+    some_are_knights = Or(*knight_symbols)
+    none_are_knights = And(*map(lambda s: Not(s), knight_symbols))
+
+    # if all are one role then none are the other role, and vice versa
+    knowledge.add(Biconditional(all_are_knaves, none_are_knights))
+    knowledge.add(Biconditional(all_are_knights, none_are_knaves))
+
+    # if some are one role then some are the other role, and vice versa
+    knowledge.add(Implication(some_are_knights, some_are_knaves))
 
 
-def add_claim_by_person(knowledge: And, claim: And | Or | Implication, person: Person):
+def add_claim_by_person(knowledge: And, claim: And | Or | Implication | Not, person: Person):
     personIsKnight = create_person_is_role_symbol(person, "Knight")
     personIsKnave = create_person_is_role_symbol(person, "Knave")
     # If person is telling the truth then they are a knight
@@ -42,40 +62,50 @@ def add_claim_by_person(knowledge: And, claim: And | Or | Implication, person: P
 
 # Puzzle 0
 # A says "I am both a knight and a knave."
-claim_by_a = And(AKnight, AKnave)
 knowledge0 = And()
-add_general_facts_for_people(knowledge0, ["A"])
+
+add_general_facts(knowledge0, available_people=["A"])
 add_claim_by_person(
     knowledge=knowledge0,
-    claim=claim_by_a,
-    person='A'
+    person='A',
+    claim=And(AKnight, AKnave),  # "I am both a knight and a knave."
 )
 
 # Puzzle 1
 # A says "We are both knaves."
 AClaim = And(AKnave, BKnave)
 # B says nothing.
-knowledge1 = And(
-    # If A is telling the truth then they are a knight
-    Implication(AClaim, AKnight),
-    # If A is lying then they are a knave
-    Implication(Not(AClaim), AKnave),
-    # If they are both not knaves then one of them is a knight
-    Implication(Not(And(AKnave, BKnave)), Or(AKnight, BKnight))
-)
+knowledge1 = And()
 
-add_general_facts_for_people(knowledge1, ["A", "B"])
+add_general_facts(knowledge1, ["A", "B"])
+add_claim_by_person(
+    knowledge=knowledge1,
+    person='A',
+    claim=And(AKnave, BKnave),  # "We are both knaves."
+)
 
 # Puzzle 2
 # A says "We are the same kind."
 # B says "We are of different kinds."
-knowledge2 = And(
-    # Implication(
-    #     Or(And(AKnave, BKnave), And(AK))
-    # )
-)
+knowledge2 = And()
 
-add_general_facts_for_people(knowledge2, ["A", "B"])
+add_general_facts(knowledge2, ["A", "B"])
+a_b_are_same_kind_claim = Or(
+    And(AKnave, BKnave),
+    And(AKnight, BKnight)
+)
+add_claim_by_person(
+    knowledge=knowledge2,
+    person='A',
+    #  "We are the same kind."
+    claim=a_b_are_same_kind_claim,
+)
+add_claim_by_person(
+    knowledge=knowledge2,
+    person='B',
+    #  "We are of different kinds."
+    claim=Not(a_b_are_same_kind_claim),
+)
 
 # Puzzle 3
 # A says either "I am a knight." or "I am a knave.", but you don't know which.
