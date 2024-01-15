@@ -22,6 +22,13 @@ def create_person_is_role_symbol(person: Person, role: Role):
 
 
 def add_general_facts(knowledge: And, available_people: list[Person]):
+    """
+    Adds general logical facts about people and roles
+
+    Args:
+        available_people: The people to consider when adding facts, so we dont add redundant facts for irrelevant people for the puzzle and reduce computation required
+    """
+
     knight_symbols = []
     knave_symbols = []
 
@@ -48,7 +55,7 @@ def add_general_facts(knowledge: And, available_people: list[Person]):
     knowledge.add(Biconditional(all_are_knights, none_are_knaves))
 
     # if some are one role then some are the other role, and vice versa
-    knowledge.add(Implication(some_are_knights, some_are_knaves))
+    knowledge.add(Biconditional(some_are_knights, some_are_knaves))
 
 
 def add_claim_by_person(
