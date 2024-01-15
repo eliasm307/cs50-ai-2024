@@ -51,7 +51,17 @@ def add_general_facts(knowledge: And, available_people: list[Person]):
     knowledge.add(Implication(some_are_knights, some_are_knaves))
 
 
-def add_claim_by_person(knowledge: And, claim: And | Or | Implication | Not, person: Person):
+def add_claim_by_person(
+    knowledge: And,
+    claim: And | Or | Implication | Not | Symbol,
+    person: Person
+):
+    """
+    Args:
+        claim: Logical representation of a claim made by the person which may or may not be true
+        person: Person who made the claim
+    """
+
     personIsKnight = create_person_is_role_symbol(person, "Knight")
     personIsKnave = create_person_is_role_symbol(person, "Knave")
     # If person is telling the truth then they are a knight
@@ -97,14 +107,12 @@ a_b_are_same_kind_claim = Or(
 add_claim_by_person(
     knowledge=knowledge2,
     person='A',
-    #  "We are the same kind."
-    claim=a_b_are_same_kind_claim,
+    claim=a_b_are_same_kind_claim,  # "We are the same kind."
 )
 add_claim_by_person(
     knowledge=knowledge2,
     person='B',
-    #  "We are of different kinds."
-    claim=Not(a_b_are_same_kind_claim),
+    claim=Not(a_b_are_same_kind_claim),  # "We are of different kinds."
 )
 
 # Puzzle 3
@@ -112,8 +120,24 @@ add_claim_by_person(
 # B says "A said 'I am a knave'."
 # B says "C is a knave."
 # C says "A is a knight."
-knowledge3 = And(
-    # TODO
+knowledge3 = And()
+
+add_general_facts(knowledge3, ["A", "B", "C"])
+add_claim_by_person(
+    knowledge=knowledge3,
+    person='A',
+    claim=Or(AKnight, AKnave),  # "I am a knight." or "I am a knave."
+)
+# NOTE: assuming B's claim of "A said 'I am a knave'." is a trick as we cant represent what people "say" using the given symbols, just what roles they have
+add_claim_by_person(
+    knowledge=knowledge3,
+    person='B',
+    claim=CKnave,  # "C is a knave."
+)
+add_claim_by_person(
+    knowledge=knowledge3,
+    person='C',
+    claim=AKnight,  # "A is a knight."
 )
 
 
