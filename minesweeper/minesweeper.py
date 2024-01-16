@@ -231,9 +231,13 @@ class MinesweeperAI():
         if cell not in self.mines:
             # if we already know the cell is a mine then we dont need to do anything
             self.mines.add(cell)
+
+        if cell in self.unknown_cells:
             self.unknown_cells.remove(cell)
 
-        self.available_moves.remove(cell)
+        if cell in self.available_moves:
+            self.available_moves.remove(cell)
+
         print("Marking mine:", cell)
         for sentence in self.knowledge:
             sentence.mark_mine(cell)
@@ -280,69 +284,106 @@ class MinesweeperAI():
                if they can be inferred from existing knowledge
         """
         print("")
-        neighbours = self.get_unknown_neighbours(cell)
+        neighbours = self.get_neighbours(cell)
         print("Adding knowledge:", cell, "has mines", count, "and neighbours", neighbours, "...")
         self.mark_revealed(cell, count)
+        if len(neighbours) == 0:
+            print("No neighbours to add knowledge for")
+            return
+
         s = Sentence(neighbours, count)
         print("Adding sentence to knowledge:", s)
         self.knowledge.append(s)
         self.print_board()
 
-        has_new_info = True # ie we just added a safe and a sentence
+        # infer new knowledge until we have exhausted all inferences
+        iteration = 0
+        while True:
+            self.optimise_knowledge()
+            new_safes = self.infer_safes()
+            new_mines = self.infer_mines()
 
-        while has_new_info: # keep checking until we have exhausted all inferences
-            self.remove_redundant_sentences()
-            safes_added = self.infer_and_mark_safes()
-            mines_added = self.infer_and_mark_mines()
-            sentences_added = self.infer_and_add_sentences()
-            has_new_info = mines_added or safes_added or sentences_added
+            for cell in new_safes:
+                self.mark_safe(cell)
+
+            for cell in new_mines:
+                self.mark_mine(cell)
+
+            new_sentences = self.infer_sentences()
+
+            if not len(new_safes) and not len(new_mines) and not len(new_sentences):
+                break  # we have exhausted all inferences
+
+            for sentence in new_sentences:
+                self.knowledge.append(sentence)
+
+            print(iteration, "After adding inference knowledge:",)
+            self.print_board()
+            iteration += 1
 
         print("After adding knowledge:", cell, "has mines", count)
         self.print_board()
 
 
-    def infer_and_add_sentences(self):
+    def infer_sentences(self):
         """
         Reviews existing clauses to see if any can be resolved to new clauses
         """
         new_sentences: list[Sentence] = []
-        duplicates: list[Sentence] = []
 
         for left_index in range(len(self.knowledge)):
             for right_index in range(left_index + 1, len(self.knowledge)):
                 s1 = self.knowledge[left_index]
                 s2 = self.knowledge[right_index]
-                if s1 == s2:
-                    duplicates.append(s1)
-                    continue
-
                 new_sentence = self.try_resolving_sentences(s1, s2)
                 if new_sentence:
+                    if self.knowledge_includes_similar_sentence(new_sentence):
+                        print("Inferred new sentence already exists:", new_sentence)
+                        continue
+
                     new_sentences.append(new_sentence)
 
-        has_changes = False
+        return new_sentences
 
-        for sentence in duplicates:
-            self.knowledge.remove(sentence)
 
-        # add sentences if they dont already exist
-        for sentence in new_sentences:
-            if not self.knowledge_includes_similar_sentence(sentence):
-                has_changes = True
-                self.knowledge.append(sentence)
-            else:
-                print("Skipping redundant existing sentence:", sentence)
+    def optimise_knowledge(self):
+        print("")
+        print("Optimising knowledge ...")
+        # self.remove_duplicate_sentences()
+        self.remove_redundant_sentences()
+        print("Knowledge optimised")
+        print("")
 
-        return has_changes
+
+    def remove_duplicate_sentences(self):
+        has_duplicates = True
+        while has_duplicates:
+            has_duplicates = self.remove_first_duplicate_sentence()
+
+
+    # doing this one by one to prevent removing multiple duplicates incorrectly
+    def remove_first_duplicate_sentence(self):
+        for left_index in range(len(self.knowledge)):
+            for right_index in range(left_index + 1, len(self.knowledge)):
+                s1 = self.knowledge[left_index]
+                s2 = self.knowledge[right_index]
+                if s1 == s2:
+                    print("Removing duplicate sentence:", s1)
+                    self.knowledge.remove(s1)
+                    return True
+
+        return False
 
 
     def remove_redundant_sentences(self):
-        """
-        Removes any sentences that are redundant
-        """
+        redundant: list[Sentence] = []
         for sentence in self.knowledge:
             if sentence.is_redundant():
-                self.knowledge.remove(sentence)
+                redundant.append(sentence)
+
+        for sentence in redundant:
+            print("Removing redundant sentence:", sentence)
+            self.knowledge.remove(sentence)
 
 
     def knowledge_includes_similar_sentence(self, new_sentence: Sentence):
@@ -355,7 +396,8 @@ class MinesweeperAI():
 
     def try_resolving_sentences(self, s1: Sentence, s2: Sentence) -> Sentence | None:
         if s1 == s2:
-            return None
+            print("Cannot resolve identical sentences:", s1, s2)
+            return
 
         if s1.is_redundant() or s2.is_redundant():
             return
@@ -372,35 +414,30 @@ class MinesweeperAI():
                 print("Inferred new sentence:", s, "from removing", s2, "from", s1)
             return s
 
-    def infer_and_mark_mines(self):
-        has_changes = False
+
+    def infer_mines(self):
+        new_mines: set[RowColumn] = set()
         for sentence in self.knowledge:
-            new_mines = sentence.known_mines()
-            has_changes = has_changes or len(new_mines) > 0
-            if len(new_mines):
-                print("Inferred mines:", new_mines)
+            new_mines.update(sentence.known_mines())
 
-            for mine in new_mines:
-                self.mark_mine(mine)
+        if len(new_mines):
+            print("Inferred mines:", new_mines)
 
-        return has_changes
+        return new_mines
 
 
-    def infer_and_mark_safes(self):
-        has_changes = False
+    def infer_safes(self):
+        new_safes: set[RowColumn] = set()
         for sentence in self.knowledge:
-            new_safes = sentence.known_safes()
-            has_changes = has_changes or len(new_safes) > 0
-            if len(new_safes):
-                print("Inferred safes:", new_safes)
+            new_safes.update(sentence.known_safes())
 
-            for safe in new_safes:
-                self.mark_safe(safe)
+        if len(new_safes):
+            print("Inferred safes:", new_safes)
 
-        return has_changes
+        return new_safes
 
 
-    def get_unknown_neighbours(self, source_cell: RowColumn):
+    def get_neighbours(self, source_cell: RowColumn):
         neighbours: set[RowColumn] = set()
         x, y = source_cell
 
@@ -413,10 +450,9 @@ class MinesweeperAI():
                 if current_cell == source_cell:
                     continue
 
-                # ignore cells with known states
-                if current_cell not in self.unknown_cells:
-                    continue
-
+                # ignore cells known to be safe, to get smaller sentences
+                # if current_cell not in self.safes:
+                #     continue
 
                 neighbours.add(current_cell)
 
@@ -444,7 +480,7 @@ class MinesweeperAI():
             1) have not already been chosen, and
             2) are not known to be mines
         """
-        return next(iter(self.available_moves))
+        move = next(iter(self.available_moves))
 
 
     def print_row_divider(self):
