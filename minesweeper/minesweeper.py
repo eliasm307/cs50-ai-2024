@@ -96,14 +96,14 @@ class Sentence():
     """
 
     def __init__(self, cells: set[RowColumn], mine_count: int):
-        self.local_cells = set(cells)
-        self.mine_count = mine_count
+        self.cells = set(cells)
+        self.count = mine_count
 
     def __eq__(self, other: 'Sentence'):
-        return self.local_cells == other.local_cells and self.mine_count == other.mine_count
+        return self.cells == other.cells and self.count == other.count
 
     def __str__(self):
-        return f"( {self.local_cells} = {self.mine_count} )"
+        return f"( {self.cells} = {self.count} )"
 
 
     def known_mines(self) -> set[RowColumn]:
@@ -111,9 +111,9 @@ class Sentence():
         Returns the set of all cells in self.cells known to be mines.
         """
 
-        if self.mine_count == len(self.local_cells):
+        if self.count == len(self.cells):
             print("[Sentence] All cells are mines:", self)
-            return self.local_cells.copy() # all are mines
+            return self.cells.copy() # all are mines
 
         return set()
 
@@ -123,9 +123,9 @@ class Sentence():
         Returns the set of all cells in self.cells known to be safe.
         """
 
-        if self.mine_count == 0:
+        if self.count == 0:
             print("[Sentence] All cells are safe:", self)
-            return self.local_cells.copy() # no mines so all are safe
+            return self.cells.copy() # no mines so all are safe
 
         return set()
 
@@ -136,15 +136,15 @@ class Sentence():
         a cell is known to be a mine.
         """
 
-        if cell not in self.local_cells:
+        if cell not in self.cells:
             return
 
         print("[Sentence] Marking mine:", cell, "removing from: ", self)
         # if cell is mine then we can remove it from the sentence
         # and reduce the mine count
-        self.local_cells.remove(cell)
-        if self.mine_count > 0:
-            self.mine_count -= 1
+        self.cells.remove(cell)
+        if self.count > 0:
+            self.count -= 1
 
         print("[Sentence] After marking mine:", self)
 
@@ -155,22 +155,22 @@ class Sentence():
         a cell is known to be safe.
         """
 
-        if cell not in self.local_cells:
+        if cell not in self.cells:
             return
 
         print("[Sentence] Marking safe:", cell, "removing from: ", self)
         # if cell is safe then we can remove it from the sentence
-        self.local_cells.remove(cell)
+        self.cells.remove(cell)
         print("[Sentence] After marking safe:", self)
 
 
     def is_subset_of(self, s: 'Sentence'):
-        return self.local_cells.issubset(s.local_cells)
+        return self.cells.issubset(s.cells)
 
 
     def resolve_with(self, sub_sentence: 'Sentence') -> 'Sentence | None':
-        remaining_cells = self.local_cells.symmetric_difference(sub_sentence.local_cells)
-        remaining_mine_count = max(0, self.mine_count - sub_sentence.mine_count)
+        remaining_cells = self.cells.symmetric_difference(sub_sentence.cells)
+        remaining_mine_count = max(0, self.count - sub_sentence.count)
 
         s = Sentence(
             cells=remaining_cells,
@@ -184,7 +184,7 @@ class Sentence():
 
 
     def is_redundant(self):
-        return len(self.local_cells) == 0
+        return len(self.cells) == 0
 
 
 class MinesweeperAI():
@@ -292,6 +292,12 @@ class MinesweeperAI():
             return
 
         s = Sentence(neighbours, count)
+        for safe in self.safes:
+            s.mark_safe(safe)
+
+        for mine in self.mines:
+            s.mark_mine(mine)
+
         print("Adding sentence to knowledge:", s)
         self.knowledge.append(s)
         self.print_board()
