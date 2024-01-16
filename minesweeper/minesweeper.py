@@ -105,7 +105,6 @@ class Sentence():
     def __str__(self):
         return f"( {self.cells} = {self.count} )"
 
-
     def known_mines(self) -> set[RowColumn]:
         """
         Returns the set of all cells in self.cells known to be mines.
@@ -113,10 +112,9 @@ class Sentence():
 
         if self.count == len(self.cells):
             print("[Sentence] All cells are mines:", self)
-            return self.cells.copy() # all are mines
+            return self.cells.copy()  # all are mines
 
         return set()
-
 
     def known_safes(self) -> set[RowColumn]:
         """
@@ -125,10 +123,9 @@ class Sentence():
 
         if self.count == 0:
             print("[Sentence] All cells are safe:", self)
-            return self.cells.copy() # no mines so all are safe
+            return self.cells.copy()  # no mines so all are safe
 
         return set()
-
 
     def mark_mine(self, cell: RowColumn):
         """
@@ -148,7 +145,6 @@ class Sentence():
 
         print("[Sentence] After marking mine:", self)
 
-
     def mark_safe(self, cell: RowColumn):
         """
         Updates internal knowledge representation given the fact that
@@ -162,10 +158,8 @@ class Sentence():
         self.cells.remove(cell)  # if cell is safe then we can remove it from the sentence
         print("[Sentence] After marking safe:", self)
 
-
     def is_subset_of(self, s: 'Sentence'):
         return self.cells.issubset(s.cells)
-
 
     def resolve_with(self, sub_sentence: 'Sentence') -> 'Sentence | None':
         """
@@ -183,7 +177,6 @@ class Sentence():
             return
 
         return s
-
 
     def is_redundant(self):
         """
@@ -225,7 +218,6 @@ class MinesweeperAI():
                 self.unknown_cells.add(cell)
                 self.available_moves.add(cell)
 
-
     def mark_mine(self, cell: RowColumn):
         """
         Marks a cell as a mine, and updates all knowledge
@@ -246,7 +238,6 @@ class MinesweeperAI():
         for sentence in self.knowledge:
             sentence.mark_mine(cell)
 
-
     def mark_safe(self, cell: RowColumn):
         """
         Marks a cell as safe, and updates all knowledge
@@ -264,7 +255,6 @@ class MinesweeperAI():
         for sentence in self.knowledge:
             sentence.mark_safe(cell)
 
-
     def mark_revealed(self, cell: RowColumn, all_mine_count: int):
         """
         Marks a cell as revealed/clicked, and marks it as safe
@@ -275,7 +265,6 @@ class MinesweeperAI():
         self.moves_made.add(cell)
         self.mark_safe(cell)
         self.mine_counts[cell] = all_mine_count
-
 
     def add_knowledge(self, cell: RowColumn, all_mines_count: int):
         """
@@ -295,7 +284,8 @@ class MinesweeperAI():
 
         print("")
         neighbours, unknown_mines_count = self.get_effective_neighbours_and_mine_count(cell, all_mines_count=all_mines_count)
-        print("Adding knowledge:", cell, "has actual mines", all_mines_count, "but", unknown_mines_count, "are unknown and neighbours", neighbours, "...")
+        print("Adding knowledge:", cell, "has actual mines", all_mines_count, "but",
+              unknown_mines_count, "are unknown and neighbours", neighbours, "...")
 
         # mark the cell as a move and safe
         self.mark_revealed(cell=cell, all_mine_count=all_mines_count)
@@ -344,7 +334,6 @@ class MinesweeperAI():
         print("Available moves:", self.available_moves)
         self.print_board()
 
-
     def infer_sentences(self):
         """
         Reviews existing clauses to see if any can be resolved to new clauses
@@ -365,7 +354,6 @@ class MinesweeperAI():
 
         return new_sentences
 
-
     def optimise_knowledge(self):
         """
         Removes duplicate and redundant sentences from knowledge
@@ -377,12 +365,10 @@ class MinesweeperAI():
         print("Knowledge optimised")
         print("")
 
-
     def remove_duplicate_sentences(self):
         has_duplicates = True
         while has_duplicates:
             has_duplicates = self.remove_first_duplicate_sentence()
-
 
     # NOTE: doing this one by one to prevent removing multiple duplicates incorrectly
     def remove_first_duplicate_sentence(self):
@@ -397,7 +383,6 @@ class MinesweeperAI():
 
         return False
 
-
     def remove_redundant_sentences(self):
         redundant: list[Sentence] = []
         for sentence in self.knowledge:
@@ -406,8 +391,7 @@ class MinesweeperAI():
 
         for sentence in redundant:
             print("Removing redundant sentence:", sentence)
-            self.knowledge.remove(sentence) # NOTE: this is safe because we are iterating over a copy of the list
-
+            self.knowledge.remove(sentence)  # NOTE: this is safe because we are iterating over a copy of the list
 
     def knowledge_includes_similar_sentence(self, new_sentence: Sentence):
         for existing_sentence in self.knowledge:
@@ -415,7 +399,6 @@ class MinesweeperAI():
                 return True  # found an existing matching sentence
 
         return False  # sentence is unique
-
 
     def try_resolving_sentences(self, s1: Sentence, s2: Sentence) -> Sentence | None:
         """
@@ -436,12 +419,11 @@ class MinesweeperAI():
             return s
 
         elif s2.is_subset_of(s1):
-            s =  s1.resolve_with(s2)
+            s = s1.resolve_with(s2)
             if s:
                 print("Inferred new sentence:", s, "from removing", s2, "from", s1)
 
             return s
-
 
     def infer_mines(self):
         """
@@ -456,7 +438,6 @@ class MinesweeperAI():
 
         return new_mines
 
-
     def infer_safes(self):
         """
         Returns a set of cells known to be safe based on existing knowledge
@@ -469,7 +450,6 @@ class MinesweeperAI():
             print("Inferred safes:", new_safes)
 
         return new_safes
-
 
     def get_effective_neighbours_and_mine_count(self, source_cell: RowColumn, all_mines_count: int):
         """
@@ -517,7 +497,6 @@ class MinesweeperAI():
                 print("Found safe move:", move)
                 return move
 
-
     def make_random_move(self):
         """
         Returns a move to make on the Minesweeper board.
@@ -530,10 +509,8 @@ class MinesweeperAI():
         if len(self.available_moves):
             return next(iter(self.available_moves))
 
-
     def print_row_divider(self):
         print("     " + "-----" * self.width)
-
 
     def print_board(self):
         """
@@ -550,7 +527,7 @@ class MinesweeperAI():
         for row in range(self.height):
             self.print_row_divider()
             for col in range(-1, self.width):
-                if(col == -1):
+                if (col == -1):
                     print("  " + str(row) + " ", end="")
                     continue
 
@@ -572,7 +549,6 @@ class MinesweeperAI():
 
         self.print_row_divider()
         print("")
-
 
     def get_number_emoji(self, n: int):
         return {
