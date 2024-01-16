@@ -159,8 +159,7 @@ class Sentence():
             return
 
         print("[Sentence] Marking safe:", cell, "removing from: ", self)
-        # if cell is safe then we can remove it from the sentence
-        self.cells.remove(cell)
+        self.cells.remove(cell)  # if cell is safe then we can remove it from the sentence
         print("[Sentence] After marking safe:", self)
 
 
@@ -169,6 +168,9 @@ class Sentence():
 
 
     def resolve_with(self, sub_sentence: 'Sentence') -> 'Sentence | None':
+        """
+        Returns a new sentence that is the result of resolving self and sub_sentence.
+        """
         remaining_cells = self.cells.symmetric_difference(sub_sentence.cells)
         remaining_mine_count = max(0, self.count - sub_sentence.count)
 
@@ -184,6 +186,9 @@ class Sentence():
 
 
     def is_redundant(self):
+        """
+        Returns True if the sentence is redundant, ie it contains no useful information and can be removed from knowledge
+        """
         return len(self.cells) == 0
 
 
@@ -211,10 +216,9 @@ class MinesweeperAI():
         # List of sentences about the game known to be true
         self.knowledge: list[Sentence] = []
 
-        # Load list of cells that we are still unsure of (ie all of them initially)
+        # Load list of cells that we are still unsure of and the moves we can make (ie all of them initially)
         self.unknown_cells: set[RowColumn] = set()
         self.mine_counts: dict[RowColumn, int] = dict()
-
         for row_index in range(height):
             for col_index in range(width):
                 cell = (row_index, col_index)
@@ -252,6 +256,8 @@ class MinesweeperAI():
         if cell not in self.safes:
             # if we already know the cell is safe then we dont need to do anything
             self.safes.add(cell)
+
+        if cell in self.unknown_cells:
             self.unknown_cells.remove(cell)
 
         print("Marking safe:", cell)
@@ -260,6 +266,9 @@ class MinesweeperAI():
 
 
     def mark_revealed(self, cell: RowColumn, all_mine_count: int):
+        """
+        Marks a cell as revealed/clicked, and marks it as safe
+        """
         if cell in self.available_moves:
             self.available_moves.remove(cell)
 
@@ -283,38 +292,46 @@ class MinesweeperAI():
             5) add any new sentences to the AI's knowledge base
                if they can be inferred from existing knowledge
         """
+
         print("")
-        neighbours, unknown_mines_count = self.get_neighbours(cell, all_mines_count=all_mines_count)
-        self.mark_revealed(cell=cell, all_mine_count=all_mines_count)
+        neighbours, unknown_mines_count = self.get_effective_neighbours_and_mine_count(cell, all_mines_count=all_mines_count)
         print("Adding knowledge:", cell, "has actual mines", all_mines_count, "but", unknown_mines_count, "are unknown and neighbours", neighbours, "...")
-        if len(neighbours) == 0:
-            print("No neighbours to add knowledge for")
-            return
 
+        # mark the cell as a move and safe
+        self.mark_revealed(cell=cell, all_mine_count=all_mines_count)
+
+        # add sentence to knowledge base
         s = Sentence(neighbours, unknown_mines_count)
-
         print("Adding sentence to knowledge:", s)
         self.knowledge.append(s)
+
+        # print status after revealing cell
         self.print_board()
 
         # infer new knowledge until we have exhausted all inferences
         iteration = 0
         while True:
             self.optimise_knowledge()
+
+            # infer safes and mines from existing knowledge
             new_safes = self.infer_safes()
             new_mines = self.infer_mines()
 
+            # apply new knowledge
             for cell in new_safes:
                 self.mark_safe(cell)
 
             for cell in new_mines:
                 self.mark_mine(cell)
 
+            # infer new sentences from existing knowledge
             new_sentences = self.infer_sentences()
 
+            # check if we have learned anything new this iteration
             if not len(new_safes) and not len(new_mines) and not len(new_sentences):
                 break  # we have exhausted all inferences
 
+            # add new sentences to knowledge
             for sentence in new_sentences:
                 self.knowledge.append(sentence)
 
@@ -341,7 +358,7 @@ class MinesweeperAI():
                 new_sentence = self.try_resolving_sentences(s1, s2)
                 if new_sentence:
                     if self.knowledge_includes_similar_sentence(new_sentence):
-                        print("Inferred new sentence already exists:", new_sentence)
+                        print("Inferred sentence already exists:", new_sentence)
                         continue
 
                     new_sentences.append(new_sentence)
@@ -350,9 +367,12 @@ class MinesweeperAI():
 
 
     def optimise_knowledge(self):
+        """
+        Removes duplicate and redundant sentences from knowledge
+        """
         print("")
         print("Optimising knowledge ...")
-        # self.remove_duplicate_sentences()
+        self.remove_duplicate_sentences()
         self.remove_redundant_sentences()
         print("Knowledge optimised")
         print("")
@@ -364,7 +384,7 @@ class MinesweeperAI():
             has_duplicates = self.remove_first_duplicate_sentence()
 
 
-    # doing this one by one to prevent removing multiple duplicates incorrectly
+    # NOTE: doing this one by one to prevent removing multiple duplicates incorrectly
     def remove_first_duplicate_sentence(self):
         for left_index in range(len(self.knowledge)):
             for right_index in range(left_index + 1, len(self.knowledge)):
@@ -386,7 +406,7 @@ class MinesweeperAI():
 
         for sentence in redundant:
             print("Removing redundant sentence:", sentence)
-            self.knowledge.remove(sentence)
+            self.knowledge.remove(sentence) # NOTE: this is safe because we are iterating over a copy of the list
 
 
     def knowledge_includes_similar_sentence(self, new_sentence: Sentence):
@@ -398,6 +418,9 @@ class MinesweeperAI():
 
 
     def try_resolving_sentences(self, s1: Sentence, s2: Sentence) -> Sentence | None:
+        """
+        Attempts to resolve two sentences to a new sentence
+        """
         if s1 == s2:
             print("Cannot resolve identical sentences:", s1, s2)
             return
@@ -409,16 +432,21 @@ class MinesweeperAI():
             s = s2.resolve_with(s1)
             if s:
                 print("Inferred new sentence:", s, "from removing", s1, "from", s2)
+
             return s
 
         elif s2.is_subset_of(s1):
             s =  s1.resolve_with(s2)
             if s:
                 print("Inferred new sentence:", s, "from removing", s2, "from", s1)
+
             return s
 
 
     def infer_mines(self):
+        """
+        Returns a set of cells known to be mines based on existing knowledge
+        """
         new_mines: set[RowColumn] = set()
         for sentence in self.knowledge:
             new_mines.update(sentence.known_mines())
@@ -430,6 +458,9 @@ class MinesweeperAI():
 
 
     def infer_safes(self):
+        """
+        Returns a set of cells known to be safe based on existing knowledge
+        """
         new_safes: set[RowColumn] = set()
         for sentence in self.knowledge:
             new_safes.update(sentence.known_safes())
@@ -440,7 +471,11 @@ class MinesweeperAI():
         return new_safes
 
 
-    def get_neighbours(self, source_cell: RowColumn, all_mines_count: int):
+    def get_effective_neighbours_and_mine_count(self, source_cell: RowColumn, all_mines_count: int):
+        """
+        Returns a set of cells with unknown status that are neighbours of the source cell
+        and the effective number of mines in those cells, ie not counting cells known to be mines
+        """
         neighbours: set[RowColumn] = set()
         x, y = source_cell
 
@@ -474,6 +509,8 @@ class MinesweeperAI():
 
         This function may use the knowledge in self.mines, self.safes
         and self.moves_made, but should not modify any of those values.
+
+        NOTE: returns None if no safe move can be made
         """
         for move in self.safes:
             if move in self.available_moves:
@@ -487,6 +524,8 @@ class MinesweeperAI():
         Should choose randomly among cells that:
             1) have not already been chosen, and
             2) are not known to be mines
+
+        NOTE: returns None if no reasonable move can be made
         """
         if len(self.available_moves):
             return next(iter(self.available_moves))
@@ -498,8 +537,8 @@ class MinesweeperAI():
 
     def print_board(self):
         """
-        Prints a text-based representation
-        of where mines are located.
+        Prints a text-based representation of the game status in the terminal,
+        including a representation of facts and inferences made by the AI about cells
         """
         print("")
         print("     ", end="")
@@ -533,6 +572,7 @@ class MinesweeperAI():
 
         self.print_row_divider()
         print("")
+
 
     def get_number_emoji(self, n: int):
         return {
