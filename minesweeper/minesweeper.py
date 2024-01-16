@@ -322,6 +322,8 @@ class MinesweeperAI():
             iteration += 1
 
         print("After adding knowledge:", cell, "has mines", count)
+        print("Unknown cells:", self.unknown_cells)
+        print("Available moves:", self.available_moves)
         self.print_board()
 
 
@@ -451,8 +453,8 @@ class MinesweeperAI():
                     continue
 
                 # ignore cells known to be safe, to get smaller sentences
-                # if current_cell not in self.safes:
-                #     continue
+                if current_cell in self.safes:
+                    continue
 
                 neighbours.add(current_cell)
 
@@ -480,7 +482,8 @@ class MinesweeperAI():
             1) have not already been chosen, and
             2) are not known to be mines
         """
-        move = next(iter(self.available_moves))
+        if len(self.available_moves):
+            return next(iter(self.available_moves))
 
 
     def print_row_divider(self):
