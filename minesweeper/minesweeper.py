@@ -259,16 +259,16 @@ class MinesweeperAI():
             sentence.mark_safe(cell)
 
 
-    def mark_revealed(self, cell: RowColumn, mine_count: int):
+    def mark_revealed(self, cell: RowColumn, all_mine_count: int):
         if cell in self.available_moves:
             self.available_moves.remove(cell)
 
         self.moves_made.add(cell)
         self.mark_safe(cell)
-        self.mine_counts[cell] = mine_count
+        self.mine_counts[cell] = all_mine_count
 
 
-    def add_knowledge(self, cell: RowColumn, count: int):
+    def add_knowledge(self, cell: RowColumn, all_mines_count: int):
         """
         Called when the Minesweeper board tells us, for a given
         safe cell, how many neighboring cells have mines in them.
@@ -284,19 +284,14 @@ class MinesweeperAI():
                if they can be inferred from existing knowledge
         """
         print("")
-        neighbours = self.get_neighbours(cell)
-        print("Adding knowledge:", cell, "has mines", count, "and neighbours", neighbours, "...")
-        self.mark_revealed(cell, count)
+        neighbours, unknown_mines_count = self.get_neighbours(cell, all_mines_count=all_mines_count)
+        self.mark_revealed(cell=cell, all_mine_count=all_mines_count)
+        print("Adding knowledge:", cell, "has actual mines", all_mines_count, "but", unknown_mines_count, "are unknown and neighbours", neighbours, "...")
         if len(neighbours) == 0:
             print("No neighbours to add knowledge for")
             return
 
-        s = Sentence(neighbours, count)
-        for safe in self.safes:
-            s.mark_safe(safe)
-
-        for mine in self.mines:
-            s.mark_mine(mine)
+        s = Sentence(neighbours, unknown_mines_count)
 
         print("Adding sentence to knowledge:", s)
         self.knowledge.append(s)
@@ -327,7 +322,7 @@ class MinesweeperAI():
             self.print_board()
             iteration += 1
 
-        print("After adding knowledge:", cell, "has mines", count)
+        print("After adding knowledge:", cell, "has mines", all_mines_count)
         print("Unknown cells:", self.unknown_cells)
         print("Available moves:", self.available_moves)
         self.print_board()
@@ -445,7 +440,7 @@ class MinesweeperAI():
         return new_safes
 
 
-    def get_neighbours(self, source_cell: RowColumn):
+    def get_neighbours(self, source_cell: RowColumn, all_mines_count: int):
         neighbours: set[RowColumn] = set()
         x, y = source_cell
 
@@ -462,9 +457,14 @@ class MinesweeperAI():
                 if current_cell in self.safes:
                     continue
 
+                # ignore cells known to be mines, to get smaller sentences
+                if current_cell in self.mines:
+                    all_mines_count -= 1
+                    continue
+
                 neighbours.add(current_cell)
 
-        return neighbours
+        return neighbours, all_mines_count
 
     def make_safe_move(self):
         """
