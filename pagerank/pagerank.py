@@ -151,25 +151,28 @@ def iterate_pagerank(corpus: Corpus, damping_factor: float) -> PageRankMap:
     """
 
     ALL_PAGES_COUNT = len(corpus)
-    MAX_EPOCH_DELTA_THRESHOLD = 0.001
-    RANDOM_PAGE_PROBABILITY = (1 - damping_factor) / ALL_PAGES_COUNT
 
-    ranks: ProbabilityMap = {}
+    ranks: PageRankMap = {}
 
     # create corpus of backlinks
-    backward_corpus: Corpus = {}
+    target_to_sources: Corpus = {}
 
     # assign initial uniform probabilities
     equal_probability = 1 / ALL_PAGES_COUNT
-    for page in corpus:
-        ranks[page] = equal_probability
-        backward_corpus[page] = set()
+    for source in corpus:
+        ranks[source] = equal_probability
+        target_to_sources[source] = set()
 
-    # populate backward corpus
+        if len(corpus[source]) == 0:
+            corpus[source] = set(corpus.keys())
+
+    # populate backward corpus (should be after the target_to_sources map is populated)
     for source in corpus:
         for target in corpus[source]:
-            backward_corpus[target].add(source)
+            target_to_sources[target].add(source)
 
+    MAX_EPOCH_DELTA_THRESHOLD = 0.001
+    RANDOM_PAGE_PROBABILITY = (1 - damping_factor) / ALL_PAGES_COUNT
     epoch_count = 1
     while True:
         epoch_delta_within_threshold = True
@@ -180,28 +183,25 @@ def iterate_pagerank(corpus: Corpus, damping_factor: float) -> PageRankMap:
             new_rank = 0
 
             # get links to the page
-            sources = backward_corpus[page]
-            if len(sources) == 0:
-                # A page that has no links at all should be interpreted as having
-                # one link for every page in the corpus (including itself)
-                new_rank = equal_probability
+            sources = target_to_sources[page]
 
-            else:
-                # get value of sum of probabilities that links would link to current page
-                for source in sources:
-                    source_links_count = len(corpus[source])
-                    if source_links_count == 0:
-                        continue
-                        # source_links_count = ALL_PAGES_COUNT
+            # get value of sum of probabilities that links would link to current page
+            # NOTE: if page has no sources linking to it then this is just 0
+            for source in sources:
+                source_links_count = len(corpus[source])
+                if source_links_count == 0:
+                    # If surfer lands on a page with no links,
+                    # the assumption is that they could go to any page next.
+                    source_links_count = ALL_PAGES_COUNT
 
-                    # PR(i) / NumLinks(i)
-                    new_rank += ranks[source] / source_links_count
+                # PR(i) / NumLinks(i)
+                new_rank += ranks[source] / source_links_count
 
-                # scale backward link probabilities by scaling factor
-                new_rank *= damping_factor
+            # scale backward link probabilities by scaling factor
+            new_rank *= damping_factor
 
-                # add fixed random page probability
-                new_rank += RANDOM_PAGE_PROBABILITY
+            # add fixed random page probability
+            new_rank += RANDOM_PAGE_PROBABILITY
 
             ranks[page] = new_rank
 
