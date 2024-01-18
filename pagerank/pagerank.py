@@ -25,12 +25,12 @@ def main():
     ranks = sample_pagerank(corpus, DAMPING, SAMPLES)
     print(f"PageRank Results from Sampling (n = {SAMPLES})")
     for page in sorted(ranks):
-        print(f"  {page}: {ranks[page]:.4f}")
+        print(f"  {page}: {ranks[page]: .4f}")
 
     ranks = iterate_pagerank(corpus, DAMPING)
     print(f"PageRank Results from Iteration")
     for page in sorted(ranks):
-        print(f"  {page}: {ranks[page]:.4f}")
+        print(f"  {page}: {ranks[page]: .4f}")
 
 
 def crawl(directory) -> Corpus:
@@ -151,6 +151,7 @@ def iterate_pagerank(corpus: Corpus, damping_factor: float) -> PageRankMap:
     """
 
     ALL_PAGES_COUNT = len(corpus)
+    ALL_PAGES = corpus.keys()
 
     ranks: PageRankMap = {}
 
@@ -163,8 +164,10 @@ def iterate_pagerank(corpus: Corpus, damping_factor: float) -> PageRankMap:
         ranks[source] = equal_probability
         target_to_sources[source] = set()
 
+        # A page that has no links at all should be interpreted as
+        # having one link for every page in the corpus (including itself).
         if len(corpus[source]) == 0:
-            corpus[source] = set(corpus.keys())
+            corpus[source] = set(ALL_PAGES)
 
     # populate backward corpus (should be after the target_to_sources map is populated)
     for source in corpus:
@@ -173,8 +176,8 @@ def iterate_pagerank(corpus: Corpus, damping_factor: float) -> PageRankMap:
 
     MAX_EPOCH_DELTA_THRESHOLD = 0.001
     RANDOM_PAGE_PROBABILITY = (1 - damping_factor) / ALL_PAGES_COUNT
-    epoch_count = 1
     while True:
+        # start with positive assumption and see if it is maintained for full epoch
         epoch_delta_within_threshold = True
 
         # go through all pages per epoch
@@ -186,13 +189,9 @@ def iterate_pagerank(corpus: Corpus, damping_factor: float) -> PageRankMap:
             sources = target_to_sources[page]
 
             # get value of sum of probabilities that links would link to current page
-            # NOTE: if page has no sources linking to it then this is just 0
             for source in sources:
+                # NOTE: because we injected links where there were none, this should not be empty
                 source_links_count = len(corpus[source])
-                if source_links_count == 0:
-                    # If surfer lands on a page with no links,
-                    # the assumption is that they could go to any page next.
-                    source_links_count = ALL_PAGES_COUNT
 
                 # PR(i) / NumLinks(i)
                 new_rank += ranks[source] / source_links_count
@@ -209,14 +208,9 @@ def iterate_pagerank(corpus: Corpus, damping_factor: float) -> PageRankMap:
             delta = abs(new_rank - old_rank)
             epoch_delta_within_threshold = epoch_delta_within_threshold and delta < MAX_EPOCH_DELTA_THRESHOLD
 
-
         if epoch_delta_within_threshold:
             break
 
-        print("After epoch", epoch_count)
-        epoch_count += 1
-
-    print("iteration sum: ", sum(ranks.values()), "ALL_PAGES_COUNT", ALL_PAGES_COUNT)
     return ranks
 
 
