@@ -45,6 +45,7 @@ PROBS: GeneralProbabilities = {
     "mutation": 0.01
 }
 
+
 class GeneTraitProbabilities(TypedDict):
     gene: dict[Literal[0, 1, 2], float]
     trait: dict[Literal[True, False], float]
@@ -103,12 +104,12 @@ def main():
 
     # Print results
     for person in people:
-        print(f"{person}:")
+        print(f"{person}: ")
         for field in probabilities[person]:
-            print(f"  {field.capitalize()}:")
+            print(f"  {field.capitalize()}: ")
             for value in probabilities[person][field]:
                 p = probabilities[person][field][value]
-                print(f"    {value}: {p:.4f}")
+                print(f"    {value}: {p: .4f}")
 
 
 class PersonData(TypedDict):
