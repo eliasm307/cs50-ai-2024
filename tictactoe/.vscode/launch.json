@@ -5,8 +5,8 @@
       "name": "Python Debugger: Tictactoe",
       "type": "debugpy",
       "request": "launch",
-      "program": "${file}",
-      "cwd": "${workspaceFolder}/tictactoe",
+      "program": "runner.py",
+      "cwd": "${workspaceFolder}",
       "console": "integratedTerminal"
     }
   ],
