@@ -1,3 +1,4 @@
+from copy import deepcopy
 from itertools import combinations
 import sys
 from typing import Any
@@ -265,21 +266,21 @@ class CrosswordCreator:
         ]
 
         # count how many neighboring words each domain word would eliminate
-        for word in self.domains[var]:
+        for word_var in self.domains[var]:
             eliminated_count = 0
             for neighbour in neighbours:
                 overlap_var, overlap_neighbour = self.get_definite_overlap(
                     var, neighbour
                 )
 
-                for option in self.domains[neighbour]:
-                    if word[overlap_var] != option[overlap_neighbour]:
+                for word_neighbour in self.domains[neighbour]:
+                    if word_var[overlap_var] != word_neighbour[overlap_neighbour]:
                         eliminated_count += 1
 
-            output.append((eliminated_count, word))
+            output.append((eliminated_count, word_var))
 
         # sort words ascending by their neighbour elimination count
-        return [word for (_, word) in sorted(output, key=lambda x: x[0])]
+        return [word for (_, word) in sorted(output)]
 
     def get_definite_overlap(self, x: Variable, y: Variable) -> tuple[int, int]:
         """
@@ -339,15 +340,27 @@ class CrosswordCreator:
 
         v = self.select_unassigned_variable(assignment)
         for word in self.order_domain_values(v, assignment):
+            # try assigning word
             new_assignment = assignment.copy()
             new_assignment[v] = word
-            if self.consistent(new_assignment):
-                # if not self.ac3():
-                #     continue  # assignment failed, move to the next one
 
-                result = self.backtrack(new_assignment)
-                if result:
-                    return result  # solution found
+            # check if the assignment is generally valid, otherwise skip it
+            if self.consistent(new_assignment):
+                # check arc consistency
+                original_domains = self.domains
+                self.domains = deepcopy(self.domains)
+                self.domains[v] = {word}
+                if not self.ac3():
+                    continue
+
+                # continue along this path to a solution
+                solution = self.backtrack(new_assignment)
+                if solution:
+                    return solution  # solution found
+
+                # solution not found on this path, restore state for next path
+                # (assignment isn't mutated so doesn't need restoring)
+                self.domains = original_domains
 
         return None
 
