@@ -62,7 +62,7 @@ class Crossword():
             self.words = set(f.read().upper().splitlines())
 
         # Determine variable set
-        self.variables = set()
+        self.variables: set[Variable] = set()
         for i in range(self.height):
             for j in range(self.width):
 
@@ -108,7 +108,7 @@ class Crossword():
         # For any pair of variables v1, v2, their overlap is either:
         #    None, if the two variables do not overlap; or
         #    (i, j), where v1's ith character overlaps v2's jth character
-        self.overlaps = dict()
+        self.overlaps: dict[tuple[Variable, Variable], tuple[int, int] | None] = dict()
         for v1 in self.variables:
             for v2 in self.variables:
                 if v1 == v2:
