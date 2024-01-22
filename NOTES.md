@@ -1,3 +1,7 @@
+# Folder Naming
+
+Due to how Python discovers modules, some folders have an underscore suffix so they have a different name from the child module, otherwise Python considers the folder as the module.
+
 # Downloading code
 
 Use `wget [url].[folder.zip]`
