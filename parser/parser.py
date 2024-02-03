@@ -59,7 +59,7 @@ JP -> P | Det | P Det
 """
 
 
-# CFG - Context Free Grammar
+# CFG = Context Free Grammar
 grammar = nltk.CFG.fromstring(NONTERMINALS + TERMINALS)
 parser = nltk.ChartParser(grammar)
 
