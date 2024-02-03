@@ -15,10 +15,19 @@ V -> "arrived" | "came" | "chuckled" | "had" | "lit" | "said" | "sat"
 V -> "smiled" | "tell" | "were"
 """
 
+"""
+NOTES:
+- "JP" non-terminals are joining phrases e.g. "in the", "at his", "the", "of" etc
+- "JP" non-terminals should only be used at the sentence level or in between symbols to avoid accepting multiple "Det"'s in a row
+  e.g. "Holmes sat in the the armchair." ("the" repeated). Generally "NP"s can optionally have a "JP" prefix
+"""
 NONTERMINALS = """
-S -> NP VP | NP P NP | NP VP Det NP | S Conj S | NP VP P NP | S Conj VP NP
-NP -> N | Det NP | NP Adv | NP P NP | Adj NP
-VP -> V | Adv VP | VP Adv | VP P
+S -> NP VP | NP JP NP | NP VP JP NP
+S -> JP NP VP | JP NP VP JP NP | NP VP JP NP
+S -> S Conj VP NP | S Conj S | JP S | S Conj VP JP NP
+NP -> N | NP Adv | NP JP NP | Adj NP
+VP -> V | Adv VP | VP Adv | VP NP
+JP -> P | Det | P Det
 """
 
 """
@@ -26,11 +35,13 @@ Examples:
 
 Text: She never said a word until we were at the door here.
 Symbols: N Adv V Det N Conj N V P Det N Adv
-Sentence structure: (NP VP NP) Conj (NP VP Det NP) = S Conj S
+Sentence structure: (NP VP NP) Conj (NP VP Det NP)
+    = S Conj S
 
 Text: holmes sat in the red armchair and he chuckled
 Symbols: N V P Det Adj N Conj N V
-Sentence structure: (NP VP Det NP) Conj (NP VP) = S Conj S
+Sentence structure: (NP VP Det NP) Conj (NP VP)
+    = S Conj S
 
 Text: holmes chuckled to himself
 Symbols: N V P N
@@ -38,9 +49,12 @@ Sentence structure: NP VP P NP
 
 Text: holmes sat down and lit his pipe
 Symbols: N V Adv Conj V Det N
-Sentence structure: (NP VP) Conj VP NP = S Conj VP NP
+Sentence structure: (NP VP) Conj VP NP
+    = S Conj VP NP
 
-
+Text: i had a country walk on thursday and came home in a dreadful mess
+Symbols: N V Det Adj N P N Conj V N P Det Adj N
+Sentence structure: (NP VP Det NP) Conj VP JP NP
 """
 
 
@@ -60,7 +74,11 @@ def print_sentence_debug(tokens: list[str]):
     for token in tokens:
         token_symbols = get_symbols(token)
         all_symbols += token_symbols
-        print(token, ":", *token_symbols)
+        print(
+            *token_symbols,
+            " - ",
+            token,
+        )
 
     print("\nSymbols:", *all_symbols)
 
