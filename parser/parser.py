@@ -15,23 +15,15 @@ V -> "arrived" | "came" | "chuckled" | "had" | "lit" | "said" | "sat"
 V -> "smiled" | "tell" | "were"
 """
 
+
 """
 NOTES:
 - "JP" non-terminals are joining phrases e.g. "in the", "at his", "the", "of" etc
 - "JP" non-terminals should only be used at the sentence level or in between symbols to avoid accepting multiple "Det"'s in a row
   e.g. "Holmes sat in the the armchair." ("the" repeated). Generally "NP"s can optionally have a "JP" prefix
-"""
-NONTERMINALS = """
-S -> NP VP | NP JP NP | NP VP JP NP
-S -> JP NP VP | JP NP VP JP NP | NP VP JP NP
-S -> S Conj VP NP | S Conj S | JP S | S Conj VP JP NP
-NP -> N | NP Adv | NP JP NP | Adj NP
-VP -> V | Adv VP | VP Adv | VP NP
-JP -> P | Det | P Det
-"""
 
-"""
-Examples:
+
+EXAMPLES:
 
 Text: She never said a word until we were at the door here.
 Symbols: N Adv V Det N Conj N V P Det N Adv
@@ -45,7 +37,7 @@ Sentence structure: (NP VP Det NP) Conj (NP VP)
 
 Text: holmes chuckled to himself
 Symbols: N V P N
-Sentence structure: NP VP P NP
+Sentence structure: NP VP JP NP
 
 Text: holmes sat down and lit his pipe
 Symbols: N V Adv Conj V Det N
@@ -55,6 +47,15 @@ Sentence structure: (NP VP) Conj VP NP
 Text: i had a country walk on thursday and came home in a dreadful mess
 Symbols: N V Det Adj N P N Conj V N P Det Adj N
 Sentence structure: (NP VP Det NP) Conj VP JP NP
+    = S Conj VP JP NP
+"""
+NONTERMINALS = """
+S -> NP VP | NP JP NP | NP VP JP NP
+S -> JP NP VP | JP NP VP JP NP | NP VP JP NP
+S -> S Conj VP NP | S Conj S | JP S | S Conj VP JP NP
+NP -> N | NP Adv | NP JP NP | Adj NP
+VP -> V | Adv VP | VP Adv | VP NP
+JP -> P | Det | P Det
 """
 
 
@@ -63,16 +64,17 @@ grammar = nltk.CFG.fromstring(NONTERMINALS + TERMINALS)
 parser = nltk.ChartParser(grammar)
 
 
-def get_symbols(token: str):
+def get_token_symbols(token: str):
     return [p.lhs().symbol() for p in grammar.productions(None, token)]
 
 
+# This is for printing details about sentences to aid in coming up with a rule to cover the structure
 def print_sentence_debug(tokens: list[str]):
     print("Chart:", parser.chart_parse(tokens).pretty_format())
     print("\nText:", *tokens)
     all_symbols = []
     for token in tokens:
-        token_symbols = get_symbols(token)
+        token_symbols = get_token_symbols(token)
         all_symbols += token_symbols
         print(
             *token_symbols,
@@ -105,7 +107,7 @@ def main():
 
     if not trees:
         print("Could not parse sentence.")
-        print_sentence_debug(s)
+        # print_sentence_debug(s)  # NOTE: Un-comment this to see more details of un-parseable sentences
         return
 
     # Print each tree with noun phrase chunks
@@ -140,12 +142,16 @@ def is_np_tree(tree: nltk.Tree) -> bool:
 
 
 def is_np_chunk(tree: nltk.Tree) -> bool:
+    """
+    An "NP chunk" (Noun Phrase chunk) is an NP Tree tree that does not itself contain any other
+    NP Tree as subtrees.
+    """
     if not is_np_tree(tree):
         return False
 
     for subtree in tree.subtrees():
         if tree == subtree:
-            continue  # NOTE: subtrees includes the root tree
+            continue  # NOTE: subtrees includes the root tree, so we ignore it
 
         if is_np_tree(subtree):
             return False  # NP tree contains NP subtrees
@@ -160,13 +166,13 @@ def np_chunk(tree: nltk.Tree):
     whose label is "NP" that does not itself contain any other
     noun phrases as subtrees.
     """
-    chunks = [
+    np_chunks = [
         np_subtree
         for np_subtree in tree.subtrees(is_np_tree)
         if is_np_chunk(np_subtree)
     ]
 
-    return chunks
+    return np_chunks
 
 
 if __name__ == "__main__":
